@@ -2,8 +2,7 @@
 
 namespace fastswoole;
 
-use common\exception\BaseException;
-use common\exception\SystemException;
+use app\exception\SystemException;
 use Swoole\Http\Request;
 use Swoole\Http\Response;
 use Swoole\Http\Server;
@@ -190,15 +189,15 @@ class App
             $controller = sprintf('app\%s\controller\%s', $this->module, $this->controller);
             $module = sprintf('%s/app/%s', APP_PATH, $this->module);
             if (!is_dir($module)) {
-                BaseException::throwException(SystemException::模块不存在);
+                BaseException::throwException(SystemException::MODULE_DOES_NOT_EXIST);
                 return NULL;
             }
             if (!class_exists($controller)) {
-                BaseException::throwException(SystemException::控制器不存在);
+                BaseException::throwException(SystemException::CONTROLLER_DOES_NOT_EXIST);
                 return NULL;
             }
             if (!is_callable([$controller, $this->action])) {
-                BaseException::throwException(SystemException::方法不存在);
+                BaseException::throwException(SystemException::METHOD_DOES_NOT_EXIST);
                 return NULL;
             }
 

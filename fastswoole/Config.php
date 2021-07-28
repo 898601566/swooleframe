@@ -4,7 +4,6 @@ namespace fastswoole;
 
 class Config
 {
-    use InstanceTrait;
     static $file = [];
 
     /**
