@@ -176,6 +176,15 @@ class App
             $value = array_shift($url_arr);
             $this->action = $value ? $value : $this->action;
         }
+        $request_uri_arr = explode('/', trim($this->request->server['request_uri'], '/'));
+        $this->module = !empty($request_uri_arr[0]) ? $request_uri_arr[0] : $this->module;
+        $this->controller = !empty($request_uri_arr[1]) ? $request_uri_arr[1] : $this->module;
+        $this->action = !empty($request_uri_arr[2]) ? $request_uri_arr[2] : $this->module;
+        var_dump($request_uri_arr);
+        var_dump($this->module);
+        var_dump($this->controller);
+        var_dump($this->action);
+
         $this->param = array_merge($this->request->get ?? [], $this->request->post ?? []);
     }
 

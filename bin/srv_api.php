@@ -10,9 +10,6 @@ defined('APP_PATH') or define('APP_PATH', __DIR__ . '/../');
 //      composer加载类
 require_once(APP_PATH . 'vendor/autoload.php');
 
-//      初始化全局环境
-//      加载公共文件
-require_once(APP_PATH . 'common/common.php');
 //      加载配置文件
 \Helper\EnvHelper::instance()->load(APP_PATH . ".env");
 //      根据配置确定开启调试模式
@@ -73,6 +70,11 @@ $server->on('request', function (\Swoole\Http\Request $request, \Swoole\Http\Res
         $response->header("Access-Control-Allow-Headers", "Content-Type,XFILENAME,XFILECATEGORY,XFILESIZE,X-Requested-With");
         $response->status(200);
         $response->end();
+        return;
+    }
+    if ($request->server['path_info'] == '/favicon.ico' || $request->server['request_uri'] == '/favicon.ico') {
+        $response->end();
+        return;
     }
     $app = new \fastswoole\App($request, $response, $server);
     $app->run();
