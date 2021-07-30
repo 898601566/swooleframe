@@ -1,8 +1,8 @@
 <?php
 
-namespace app\exception;
+namespace App\exception;
 
-use fastswoole\BaseException;
+use Fastswoole\core\BaseException;
 
 /**
  * 100-999

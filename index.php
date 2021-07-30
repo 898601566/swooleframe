@@ -7,10 +7,10 @@ define('APP_PATH', __DIR__ . '/');
 define('APP_DEBUG', true);
 
 // 加载框架文件
-require(APP_PATH . 'fastswoole/fastswoole.php');
+require(APP_PATH . 'core/core.php');
 
 // 加载配置文件
 $config = require(APP_PATH . 'config/config.php');
 
 // 实例化框架类
-echo (new fastswoole\fastswoole($config))->run();
+echo (new Fastswoole\core\fastswoole($config))->run();
