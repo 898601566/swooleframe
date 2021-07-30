@@ -53,12 +53,13 @@ class App
         $this->http_server = $http_server;
         $this->response = $response;
 
-        $this->module = env('app.default_module');
-        $this->controller = env('app.default_controller');
-        $this->action = env('app.default_action');
         $this->host = $request->header['host'];
+        $this->param = array_merge($request->get ?? [], $request->post ?? []);
 
-        $this->analysisUrl($request->server['request_uri']);
+        $request_uri_arr = explode('/', trim($request->server['request_uri'], '/'));
+        $this->module = !empty($request_uri_arr[0]) ? $request_uri_arr[0] : env('app.default_module');
+        $this->controller = !empty($request_uri_arr[1]) ? $request_uri_arr[1] : env('app.default_controller');
+        $this->action = !empty($request_uri_arr[2]) ? $request_uri_arr[2] : env('app.default_action');
     }
 
 
@@ -146,51 +147,6 @@ class App
     }
 
     /**
-     * 解析URL,分离 module  controller action
-     * @get $url
-     */
-    public function analysisUrl($url)
-    {
-        //读取url "?"前面的部分
-        $get_str = '';
-        $url_arr = '';
-        if (strpos($url, '?') !== FALSE) {
-            $get_str = trim(strstr($url, '?'), '?');
-            $url = strstr($url, '?', TRUE);
-//            $this->url = $this->request->header['host'] . $url;
-        }
-        //读取url "?"前面的部分(忽略后缀)
-        if (strpos($url, '.') !== FALSE) {
-            $url = strstr($url, '.', TRUE);
-        }
-//          删除前后的“/”
-        $url = trim($url, '/');
-        if (!empty($url)) {
-            if (strpos($url, "public") !== FALSE) {
-                $url = substr($url, strpos($url, "public") + strlen("public"));
-            }
-//          转成数组
-            $url_arr = explode('/', $url);
-//            清除空值
-            $url_arr = array_filter($url_arr);
-            $value = array_shift($url_arr);
-//            //swoole去除favicon
-//            $value = $value == 'favicon' ? $this->module : $value;
-            $this->module = $value ? $value : $this->module;
-            $value = array_shift($url_arr);
-            $this->controller = $value ? $value : $this->controller;
-            $value = array_shift($url_arr);
-            $this->action = $value ? $value : $this->action;
-        }
-        $request_uri_arr = explode('/', trim($this->request->server['request_uri'], '/'));
-        $this->module = !empty($request_uri_arr[0]) ? $request_uri_arr[0] : $this->module;
-        $this->controller = !empty($request_uri_arr[1]) ? $request_uri_arr[1] : $this->module;
-        $this->action = !empty($request_uri_arr[2]) ? $request_uri_arr[2] : $this->module;
-
-        $this->param = array_merge($this->request->get ?? [], $this->request->post ?? []);
-    }
-
-    /**
      * 运行控制器
      * @return null
      */
@@ -211,7 +167,6 @@ class App
                 BaseException::throwException(SystemException::METHOD_DOES_NOT_EXIST);
                 return NULL;
             }
-
             // 如果控制器和操作名存在，则实例化控制器，因为控制器对象里面
             // 还会用到控制器名和操作名，所以实例化的时候把他们俩的名称也
             // 传进去。结合Controller基类一起看
@@ -226,6 +181,13 @@ class App
         }
     }
 
+    /**
+     * html格式返回
+     * @param $data
+     * @param int $code
+     *
+     * @return bool
+     */
     public function html($data, $code = 200)
     {
         echo "response:" . date("Y-m-d H:i:s") . "\n";
@@ -235,6 +197,14 @@ class App
         return TRUE;
     }
 
+    /**
+     * json格式返回
+     * @param $data
+     * @param int $code
+     * @param string $mgs
+     *
+     * @return bool
+     */
     public function json($data, $code = 0, $mgs = 'success')
     {
         echo "response:" . date("Y-m-d H:i:s") . "\n";

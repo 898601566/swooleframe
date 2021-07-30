@@ -92,7 +92,7 @@ class Query
     public function clear()
     {
         $this->_init();
-        PDOOBJ::clear($this->pdo_object);
+        PDOInstance::clear($this->pdo_object);
         $this->pdo_object = NULL;
     }
 
@@ -102,7 +102,7 @@ class Query
     public function getPDO()
     {
         if (empty($this->pdo_object)) {
-            $this->pdo_object = PDOOBJ::instance();
+            $this->pdo_object = PDOInstance::instance();
         }
         return $this->pdo_object;
     }

@@ -7,7 +7,7 @@
  */
 
 use Fastswoole\core\ExceptionHandler;
-use Fastswoole\model\PDOOBJ;
+use Fastswoole\model\PDOInstance;
 use Swoole\Runtime;
 
 echo "init\n";
@@ -17,14 +17,13 @@ defined('CORE_PATH') or define('CORE_PATH', __DIR__);
 defined('APP_PATH') or define('APP_PATH', __DIR__ . '/../');
 //      composer加载类
 require_once(APP_PATH . 'vendor/autoload.php');
-
 //      加载配置文件
 \Helper\EnvHelper::instance()->load(APP_PATH . ".env");
 //      根据配置确定开启调试模式
 defined('APP_DEBUG') or define('APP_DEBUG', env('app_debug'));
 //时区
-//      根据配置确定开启调试模式
 ini_set('date.timezone', 'Asia/Shanghai');
+//      根据配置确定开启调试模式
 if (APP_DEBUG == TRUE) {
     error_reporting(E_ALL);
     ini_set('display_errors', 'ON');
@@ -33,12 +32,12 @@ if (APP_DEBUG == TRUE) {
     ini_set('display_errors', 'Off');
     ini_set('log_errors', 'On');
 }
-
+// 新建HTTPServer实例
 $server = new \Swoole\Http\Server(
     env('swoole.http_address', '0.0.0.0'),
     env('swoole.http_port', '9501')
 );
-
+//设置HTTPServer运行条件
 $server->set([
 //  守护进程化
 'daemonize' => 0,
@@ -84,9 +83,10 @@ $server->on('request', function (\Swoole\Http\Request $request, \Swoole\Http\Res
         $response->end();
         return;
     }
-
+    //实例化APP
     $app = new \Fastswoole\core\App($request, $response, $server);
     echo "request:" . date("Y-m-d H:i:s") . "\n";
+    //APP启动
     $app->run();
 });
 
@@ -98,7 +98,7 @@ $server->on('Finish', function ($server, $task_id, $data) {
 
 //处理异步任务(此回调函数在task进程中执行)
 $server->on('Task', function ($server, $task_id, $worker_id, $data) {
-
+    var_dump($data);
 });
 
 //启动Worker进程
@@ -117,7 +117,20 @@ $server->on('workerStart', function ($servers, $id) {
         //注入控制反转容器
         \Fastswoole\core\Di::instance()->set(\Swoole\Database\PDOPool::class, $pdoPool);
     }
+//  redis连接池
+    if (!empty(env('redis.use')) && !empty(env('redis.pool'))) {
+        $redisConfig = new \Swoole\Database\RedisConfig();
+        $redisConfig->withHost(env('redis.host'))
+                    ->withPort(env('redis.port'))
+                    ->withAuth('')
+                    ->withDbIndex(env('redis.index'))
+                    ->withTimeout(env('redis.timeout'));
+        $redisPool = new \Swoole\Database\RedisPool($redisConfig, env('database.pool'));
+        //注入控制反转容器
+        \Fastswoole\core\Di::instance()->set(\Swoole\Database\RedisPool::class, $redisPool);
+    }
 });
 
+//启动HTTPServer服务
 echo "start\n";
 $server->start();
