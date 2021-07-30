@@ -1,4 +1,10 @@
 <?php
+/**
+ * Created by : PhpStorm
+ * User: Sin Lee
+ * Date: 2021/7/30
+ * Time: 16:27
+ */
 
 use Fastswoole\core\ExceptionHandler;
 use Fastswoole\model\PDOOBJ;
@@ -43,7 +49,7 @@ $server->set([
 //  设置端口重用。【默认值：false】
 'enable_reuse_port' => TRUE,
 //  设置启动的 Worker 进程数。【默认值：CPU 核数】
-'worker_num' => 6,
+'worker_num' => 1,
 //  设置启动的 Reactor 线程数。【默认值：CPU 核数】
 'reactor_num' => 6,
 //  设置最大数据包尺寸，单位为字节。【默认值：2M 即 2 * 1024 * 1024，最小值为 64K】
@@ -95,21 +101,22 @@ $server->on('Task', function ($server, $task_id, $worker_id, $data) {
 
 });
 
-$server->i = 1;
 //启动Worker进程
 $server->on('workerStart', function ($servers, $id) {
 //  一键协程化,请求间的协程
     Runtime::enableCoroutine(SWOOLE_HOOK_ALL);
 //  PDO连接池
-    $pdoConfig = new \Swoole\Database\PDOConfig();
-    $pdoConfig->withHost(env('database.host'))->withPort(env('database.port'))
-              ->withDbname(env('database.dbname'))
-              ->withCharset(env('database.charset'))
-              ->withUsername(env('database.username'))
-              ->withPassword(env('database.password'));
-    $pdoPool = new \Swoole\Database\PDOPool($pdoConfig,env('database.pool'));
-    //注入控制反转容器
-    \Fastswoole\core\Di::instance()->set(\Swoole\Database\PDOPool::class,$pdoPool);
+    if (!empty(env('database.pool'))) {
+        $pdoConfig = new \Swoole\Database\PDOConfig();
+        $pdoConfig->withHost(env('database.host'))->withPort(env('database.port'))
+                  ->withDbname(env('database.dbname'))
+                  ->withCharset(env('database.charset'))
+                  ->withUsername(env('database.username'))
+                  ->withPassword(env('database.password'));
+        $pdoPool = new \Swoole\Database\PDOPool($pdoConfig, env('database.pool'));
+        //注入控制反转容器
+        \Fastswoole\core\Di::instance()->set(\Swoole\Database\PDOPool::class, $pdoPool);
+    }
 });
 
 echo "start\n";
