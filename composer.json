@@ -1,5 +1,5 @@
 {
-    "name": "alex-lee/fastswoole",
+    "name": "alex-lee/swooleframe",
     "description": "基于swoole写的一个MVC框架,功能正在逐步完善中",
     "autoload": {
         "psr-4": {
