@@ -111,7 +111,7 @@ class Query
     }
 
     /**
-     * 设置where条件
+     * 分解where条件,然后写入condition属性
      *
      * @param $where
      * @param string $method
@@ -168,7 +168,7 @@ class Query
     }
 
     /**
-     * 设置whereOr条件
+     * 分解whereOr条件,然后写入condition属性
      *
      * @param $where
      * @param string $method
@@ -290,6 +290,7 @@ class Query
             $this->condition_str .= " WHERE ";
             $trim_condition_str = trim($this->condition_str);
         }
+        //写入实例condition_str属性
         if ($condition_str) {
             //判断是否需要AND OR
             if (StringHelper::endsWith($trim_condition_str, 'WHERE')
@@ -406,11 +407,16 @@ class Query
      */
     public function select()
     {
-        $sql = $this->composeSql();
+//        拼接各个模块
+        $condition = $this->condition_str . $this->group_str . $this->order_str . $this->limit_str;
+//        构造sql查询语句
+        $sql = sprintf('select %s from `%s` %s', $this->field, $this->table, $condition);
+//        从PDO获取实例
         $sttmnt = $this->getPDO()->prepare($sql);
         $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
         $sttmnt->execute();
         $res = $sttmnt->fetchAll();
+//        构造模型类再塞入集合
         $model_class_name = $this->model_class_name;
         $ret = new Collection();
         foreach ($res as $key => $value) {
@@ -425,17 +431,6 @@ class Query
         }
         $this->clear();
         return $ret;
-    }
-
-    /**
-     * 组合查询SQl
-     * @return string
-     */
-    public function composeSql()
-    {
-        $condition = $this->condition_str . $this->group_str . $this->order_str . $this->limit_str;
-        $sql = sprintf('select %s from `%s` %s', $this->field, $this->table, $condition);
-        return $sql;
     }
 
     /**
@@ -459,6 +454,7 @@ class Query
     }
 
     /**
+     * 查询一条记录
      * @param array $id
      *
      * @return Model
@@ -476,31 +472,60 @@ class Query
         return NULL;
     }
 
-
+    /**
+     * 统计数量
+     * @param string $field
+     *
+     * @return int|mixed|null
+     */
     public function count($field = '*')
     {
         $one = $this->field(["count($field)" => 'count'])->find();
         return !empty($one) ? $one['count'] : 0;
     }
 
+    /**
+     * 求最小值
+     * @param $field
+     *
+     * @return int|mixed|null
+     */
     public function min($field)
     {
         $one = $this->field(["min($field)" => 'min'])->find();
         return !empty($one) ? $one['min'] : 0;
     }
 
+    /**
+     * 求最大值
+     * @param $field
+     *
+     * @return int|mixed|null
+     */
     public function max($field)
     {
         $one = $this->field(["max($field)" => 'max'])->find();
         return !empty($one) ? $one['max'] : 0;
     }
 
+    /**
+     * 求和
+     * @param $field
+     *
+     * @return int|mixed|null
+     */
     public function sum($field)
     {
         $one = $this->field(["sum($field)" => 'sum'])->find();
         return !empty($one) ? $one['sum'] : 0;
     }
 
+    /**
+     * 求平均值
+     * @param $field
+     *
+     * @return int|mixed|null
+     */
     public function avg($field)
     {
         $one = $this->field(["avg($field)" => 'avg'])->find();

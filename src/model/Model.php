@@ -128,6 +128,13 @@ class Model implements \ArrayAccess
         return $res;
     }
 
+    /**
+     * 门面模式
+     * @param $method
+     * @param $args
+     *
+     * @return mixed
+     */
     public static function __callStatic($method, $args)
     {
         $queryInstance = (new static())->getQueryInstance();
