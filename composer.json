@@ -26,13 +26,7 @@
     ],
     "scripts": {
         "post-autoload-dump": [
-            "cp -r app ../",
-            "cp -r bin ../",
-            "cp -r public ../",
-            "cp .example.env ../",
-            "cp .example.env ../.env",
-            "rm -rf runtime && mkdir runtime",
-            "mkdir runtime/logs"
+            "composer install"
         ]
     }
 }
