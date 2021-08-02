@@ -8,7 +8,8 @@
         }
     },
     "require": {
-        "alex-lee/php-helper": "^1.2"
+        "alex-lee/php-helper": "^1.2",
+        "monolog/monolog": "^2.0"
     },
     "repositories": [
         {
