@@ -26,10 +26,13 @@
     ],
     "scripts": {
         "post-autoload-dump": [
-            "cp .env.example .env",
-            "mkdir runtime",
-            "mkdir runtime/logs",
-            "chmod -R 777 runtime"
+            "cp -r app ../",
+            "cp -r bin ../",
+            "cp -r public ../",
+            "cp .example.env ../",
+            "cp .example.env ../.env",
+            "rm -rf runtime && mkdir runtime",
+            "mkdir runtime/logs"
         ]
     }
 }
