@@ -17,6 +17,13 @@ class Di
     private $onKeyMiss = null;
     private $alias = [];
 
+    /**
+     * 别名
+     * @param $alias
+     * @param $key
+     *
+     * @return $this
+     */
     public function alias($alias,$key): Di
     {
         if(!array_key_exists($alias,$this->container)){
@@ -27,36 +34,60 @@ class Di
         }
     }
 
+    /**
+     * 当key不存在的时候调用
+     * @param callable $call
+     *
+     * @return $this
+     */
     public function setOnKeyMiss(callable $call):Di
     {
         $this->onKeyMiss = $call;
         return $this;
     }
 
+    /**
+     * 输出别名
+     * @param $alias
+     *
+     * @return $this
+     */
     public function deleteAlias($alias): Di
     {
         unset($this->alias[$alias]);
         return $this;
     }
 
+    /**
+     * 设置容器
+     * @param $key
+     * @param $obj
+     * @param ...$arg
+     */
     public function set($key, $obj,...$arg):void
     {
-        /*
-         * 注入的时候不做任何的类型检测与转换
-         * 由于编程人员为问题，该注入资源并不一定会被用到
-         */
         $this->container[$key] = [
             "obj"=>$obj,
             "params"=>$arg
         ];
     }
 
+    /**
+     * 根据key删除容器
+     * @param $key
+     *
+     * @return $this
+     */
     function delete($key):Di
     {
         unset($this->container[$key]);
         return $this;
     }
 
+    /**
+     * 清空容器
+     * @return $this
+     */
     function clear():Di
     {
         $this->container = [];
@@ -64,6 +95,7 @@ class Di
     }
 
     /**
+     * 获取实例
      * @param $key
      * @return null
      * @throws \Throwable
@@ -76,9 +108,11 @@ class Di
         if(isset($this->container[$key])){
             $obj = $this->container[$key]['obj'];
             $params = $this->container[$key]['params'];
+//          对象或者匿名函数直接返回
             if(is_object($obj) || is_callable($obj)){
                 return $obj;
             }else if(is_string($obj) && class_exists($obj)){
+//              字符串用反射调用
                 try{
                     $ref = new \ReflectionClass($obj);
                     if(empty($params)){
@@ -105,6 +139,7 @@ class Di
                 return $obj;
             }
         }else{
+//          当key对应容器不存在,且$this->onKeyMiss可调用,就调用$this->onKeyMiss
             if(is_callable($this->onKeyMiss)){
                 return call_user_func($this->onKeyMiss,$key);
             }

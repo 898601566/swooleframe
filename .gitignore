@@ -18,5 +18,5 @@ nbdist/
 runtime
 config/app.php
 config/database.php
-storage/logs/*
+storage/runtime/*
 

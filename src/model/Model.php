@@ -88,17 +88,6 @@ class Model implements \ArrayAccess
         unset($this->data[$name], $this->relation[$name]);
     }
 
-    /**
-     * @param array $options
-     *
-     * @return static
-     */
-    public static function instance($options = [])
-    {
-
-        return new static();
-    }
-
     // ArrayAccess
     public function offsetSet($name, $value)
     {

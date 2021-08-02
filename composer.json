@@ -32,5 +32,13 @@
             "type": "composer",
             "url": "https://packagist.org"
         }
-    ]
+    ],
+    "scripts": {
+        "post-autoload-dump": [
+            "cp .env.example .env",
+            "mkdir runtime",
+            "mkdir runtime/logs",
+            "chmod -R 777 runtime"
+        ]
+    }
 }

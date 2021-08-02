@@ -217,28 +217,4 @@ class App
         $this->response->end(json_encode($retJson, JSON_UNESCAPED_UNICODE));
         return TRUE;
     }
-
-    /**
-     * 获取一个reids实例
-     * @return \Redis
-     * @throws \Throwable
-     */
-    public function getRedis(): \Redis
-    {
-        $redis = Di::instance()->get('redis');
-        try {
-            if (empty($redis)) {
-                $redis = new \Redis();
-                $res = $redis->connect(env('redis.host'), env('redis.port'), env('redis.timeout'));
-                //redis连接失败不报异常，而是打印Redis server went away
-                $redis->set('connect_status', $res . '-' . time(), 15);
-                Di::instance()->set('redis', $redis);
-            }
-        }
-        catch (\Exception $e) {
-            echo "get_redis->" . $e->getMessage() . PHP_EOL;
-            Di::instance()->delete('redis');
-        }
-        return $redis;
-    }
 }

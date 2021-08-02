@@ -30,7 +30,7 @@ class ExceptionHandler
     {
         //如果是自定义异常则直接打印
         if (env('app.debug')) {
-            static::recordErrorLog($e);
+            static::recordLog($e);
         }
         //默认的系统错误
         if (!$e instanceof BaseException) {
@@ -46,7 +46,7 @@ class ExceptionHandler
      *
      * @param Exception $e
      */
-    private static function recordErrorLog(\Throwable $e, $level = Logger::DEBUG)
+    private static function recordLog(\Throwable $e, $level = Logger::DEBUG)
     {
         $log = sprintf("<p style='font-size: 36px;'>%s</p>", $e->getMessage());
         $log .= sprintf("<p style='font-size: 20px;'>%s (%s) %s</p>", $e->getFile(), $e->getLine(), "\n<br>");
@@ -57,7 +57,7 @@ class ExceptionHandler
             }
         }
         $Logger = new Logger('Exception');
-        $Logger->pushHandler(new StreamHandler(APP_PATH . 'logs/app.log', $level));
+        $Logger->pushHandler(new StreamHandler(APP_PATH . '/runtime/logs/exception.log', $level));
         $Logger->error($log);
         return $log;
     }

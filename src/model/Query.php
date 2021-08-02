@@ -8,9 +8,12 @@
 
 namespace Fastswoole\model;
 
+use App\exception\SystemException;
 use Fastswoole\core\Di;
 use Helper\ArrayHelper;
 use Helper\StringHelper;
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
 use Swoole\Database\PDOStatementProxy;
 use \Swoole\Database\PDOPool;
 
@@ -23,8 +26,8 @@ class Query
      */
     protected $pdo_object;
 
-    private static $sqls = [];
-    private static $source_sql = [];
+    private $sqls = [];
+    private $source_sql = [];
     private $model;
     private $pk;
     // WHERE和ORDER拼装后的条件
@@ -122,7 +125,11 @@ class Query
         if (empty($field)) {
             return $this;
         }
-
+//        两个参数的情况,视为=运算符
+        if (empty($condition)) {
+            $condition = $operate;
+            $operate = '=';
+        }
         switch (TRUE) {
             case $field instanceof \Closure:
                 $this->whereSplicce(" ( ", '', 'AND');
@@ -135,21 +142,21 @@ class Query
                 }
                 break;
             case !empty($operate) && isset($condition):
-                $bind_key = $this->getBindKey($field);
+                $bindKey = $this->getBindKey($field);
                 switch ($operate) {
                     case 'in':
                         //处理非数组的值
                         $condition = is_array($condition) ? $condition : [$condition];
                         foreach ($condition as $condition2) {
-                            $bind_key = $this->getBindKey($field);
-                            $bind_keys[] = $bind_key;
-                            $binds[$bind_key] = $condition2;
+                            $bindKey = $this->getBindKey($field);
+                            $bindKeys[] = $bindKey;
+                            $binds[$bindKey] = $condition2;
                         }
-                        $bind_keys = implode(',', $bind_keys);
-                        $this->whereSplicce("$field $operate ($bind_keys)", $binds, ' AND ');
+                        $bindKeys = implode(',', $bindKeys);
+                        $this->whereSplicce("$field $operate ($bindKeys)", $binds, ' AND ');
                         break;
                     default:
-                        $this->whereSplicce("$field $operate $bind_key", ["$bind_key" => $condition], ' AND ');
+                        $this->whereSplicce("$field $operate $bindKey", ["$bindKey" => $condition], ' AND ');
                         break;
                 }
                 break;
@@ -175,7 +182,11 @@ class Query
         if (empty($field)) {
             return $this;
         }
-
+//        两个参数的情况,视为=运算符
+        if (empty($condition)) {
+            $condition = $operate;
+            $operate = '=';
+        }
         switch (TRUE) {
             case $field instanceof \Closure:
                 $this->whereSplicce(" ( ", '', 'OR');
@@ -188,21 +199,21 @@ class Query
                 }
                 break;
             case !empty($operate) && isset($condition):
-                $bind_key = $this->getBindKey($field);
+                $bindKey = $this->getBindKey($field);
                 switch ($operate) {
                     case 'in':
                         //处理非数组的值
                         $condition = is_array($condition) ? $condition : [$condition];
                         foreach ($condition as $condition2) {
-                            $bind_key = $this->getBindKey($field);
-                            $bind_keys[] = $bind_key;
-                            $binds[$bind_key] = $condition2;
+                            $bindKey = $this->getBindKey($field);
+                            $bindKeys[] = $bindKey;
+                            $binds[$bindKey] = $condition2;
                         }
-                        $bind_keys = implode(',', $bind_keys);
-                        $this->whereSplicce("$field $operate ($bind_keys)", $binds, ' OR ');
+                        $bindKeys = implode(',', $bindKeys);
+                        $this->whereSplicce("$field $operate ($bindKeys)", $binds, ' OR ');
                         break;
                     default:
-                        $this->whereSplicce("$field $operate $bind_key", ["$bind_key" => $condition], ' OR ');
+                        $this->whereSplicce("$field $operate $bindKey", ["$bindKey" => $condition], ' OR ');
                         break;
                 }
                 break;
@@ -249,12 +260,16 @@ class Query
      *
      * @return string
      */
-    public function getBindKey($key, $prefix = ''): string
+    public function getBindKey($key, $prefix = 'bind'): string
     {
-        $prefix = uniqid("cdt", FALSE) . $prefix;
-        $bind_key = str_replace('.', '__', "$key");
-        $bind_key = str_replace('%', '_', $bind_key);
-        return ":{$prefix}_{$bind_key}";
+        $bindKey = str_replace('.', '__', "$key");
+        $bindKey = str_replace('%', '_', $bindKey);
+        $retKey = ":{$prefix}_{$bindKey}";
+        if (array_key_exists($retKey, $this->bind)) {
+            $retKey .= "_" . count($this->bind);
+        }
+        $this->bind[$retKey] = NULL;
+        return $retKey;
     }
 
     /**
@@ -393,7 +408,7 @@ class Query
     {
         $sql = $this->composeSql();
         $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $this->bind);
+        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
         $sttmnt->execute();
         $res = $sttmnt->fetchAll();
         $model_class_name = $this->model_class_name;
@@ -451,7 +466,6 @@ class Query
      */
     public function find($id = 0)
     {
-
         if (!empty($id)) {
             $this->where($this->model->pk, '=', $id);
         }
@@ -501,42 +515,42 @@ class Query
      *
      * @return PDOStatementProxy
      */
-    public function formatBind($sttmnt, $binds = [])
+    public function formatBind($sttmnt, $queryString, $binds = [])
     {
         if (empty($binds)) {
             $binds = $this->bind;
         }
-
         foreach ($binds as $bind => $value) {
             $bind = is_int($bind) ? $bind + 1 : ':' . trim($bind, ':');
             $sttmnt->bindValue($bind, $value);
             $binds[$bind] = "'$value'";
         }
-        static::$sqls[] = strtr($sttmnt->queryString, $binds);
-        static::$source_sql[] = [
-            $sttmnt->queryString,
+        $this->sqls[] = strtr($queryString, $binds);
+        $this->source_sql[] = [
+            $queryString,
             $this->bind,
         ];
-
+        if (env('app.debug')) {
+            static::recordLog($queryString);
+            static::recordLog(strtr($queryString, $binds));
+        }
         return $sttmnt;
     }
 
     public function getLastSql()
     {
 
-        return ArrayHelper::last(static::$sqls);
+        return ArrayHelper::last($this->sqls);
     }
 
     public function getSqls()
     {
-
-        return static::$sqls;
+        return $this->sqls;
     }
 
     public function getSourceSql()
     {
-
-        return static::$source_sql;
+        return $this->source_sql;
     }
 
     /**
@@ -548,12 +562,14 @@ class Query
     {
         $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsert($data));
         $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt);
+        $sttmnt = $this->formatBind($sttmnt, $sql);
 
-        $this->clear();
+        $lastInsertId = NULL;
         if ($sttmnt->execute()) {
-            return $this->pdo_object->lastInsertId();
+            $lastInsertId = $this->pdo_object->lastInsertId();
         }
+        $this->clear();
+        return $lastInsertId;
     }
 
     public function create($data)
@@ -577,11 +593,14 @@ class Query
             $this->where($where);
         }
         $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
+        var_dump($this->condition_str);
+        var_dump($this->bind);
         $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt);
+        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
         $sttmnt->execute();
+        $count = $sttmnt->rowCount();
         $this->clear();
-        return $sttmnt->rowCount();
+        return $count;
     }
 
     /**
@@ -596,9 +615,9 @@ class Query
         $bind_data = [];
         foreach ($data as $key => $value) {
             $field_arr[] = sprintf('`%s`', $key);
-            $bind_key = $this->getBindKey($key);
-            $bind_name_arr[] = $bind_key;
-            $bind_data[$bind_key] = $value;
+            $bindKey = $this->getBindKey($key);
+            $bind_name_arr[] = $bindKey;
+            $bind_data[$bindKey] = $value;
         }
         $this->addBind($bind_data);
         $field = implode(',', $field_arr);
@@ -619,9 +638,9 @@ class Query
         $field_arr = [];
         $bind_data = [];
         foreach ($data as $key => $value) {
-            $bind_key = $this->getBindKey($key);
-            $field_arr[] = sprintf(' `%s` = %s ', $key, $bind_key);
-            $bind_data[$bind_key] = $value;
+            $bindKey = $this->getBindKey($key);
+            $field_arr[] = sprintf(' `%s` = %s ', $key, $bindKey);
+            $bind_data[$bindKey] = $value;
         }
         $this->addBind($bind_data);
         $field = implode(',', $field_arr);
@@ -631,19 +650,30 @@ class Query
     /**
      * 根据条件主键删除
      *
-     * @param type $id
+     * @param integer|array $where
      *
      * @return type
      */
-    public function delete($id)
+    public function delete($where = [])
     {
-        $sql = sprintf("delete from `%s` where `%s` = :%s", $this->table, $this->pk, $this->pk);
+        if (!empty($where)) {
+            if (is_int($where)) {
+                $this->where($this->pk, $where);
+            } else {
+                $this->where($where);
+            }
+        }
+        $sql = sprintf("delete from `%s` %s", $this->table, $this->condition_str);
+        if (FALSE == strpos($sql, "WHERE")) {
+            var_dump($sql);
+            SystemException::throwException(SystemException::SYSTEM_ERROR);
+        }
         $sttmnt = $this->getPDO()->prepare($sql);
-        $this->addBind([$this->pk => $id]);
-        $sttmnt = $this->formatBind($sttmnt);
+        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
         $sttmnt->execute();
+        $rowCount = $sttmnt->rowCount();
         $this->clear();
-        return $sttmnt->rowCount();
+        return $rowCount;
     }
 
     /**
@@ -686,5 +716,17 @@ class Query
         $this->pdo_object->rollBack();
     }
 
+    /**
+     * 将异常写入日志
+     *
+     * @param \String $sql
+     */
+    private static function recordLog($sql, $level = Logger::DEBUG)
+    {
+        $Logger = new Logger('Sql');
+        $Logger->pushHandler(new StreamHandler(APP_PATH . '/runtime/logs/sql.log', $level));
+        $Logger->debug($sql);
+        return TRUE;
+    }
 
 }
