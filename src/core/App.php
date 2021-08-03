@@ -170,10 +170,19 @@ class App
     public function run()
     {
         try {
-
             if (!empty(env("sign.use"))) {
                 $auth = new Sign($this);
                 $auth->verifySign();
+            }
+                var_dump(env("limit.use"));
+            if (!empty(env("limit.use"))) {
+                $limit = new Limit($this);
+                $appRules = [
+                    env("limit.unit_of_time") => env("limit.max_number")
+                ];
+                if (FALSE == $limit->slideWindow($appRules, 'app_limit')) {
+                    SystemException::throwException(SystemException::SERVER_TIMEOUT);
+                }
             }
             $controller = sprintf('App\%s\controller\%s', $this->module, $this->controller);
             $module = sprintf('%s/app/%s', APP_PATH, $this->module);
@@ -201,6 +210,7 @@ class App
         catch (\Exception $e) {
             ExceptionHandler::render($e, $this);
         }
+
     }
 
     /**
