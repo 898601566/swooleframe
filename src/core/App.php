@@ -40,11 +40,11 @@ class App
      */
     public Url $url;
 
-    public $host;
-    public $module;
-    public $controller;
-    public $action;
-    public $param;
+    public $host = NULL;
+    public $module = NULL;
+    public $controller = NULL;
+    public $action = NULL;
+    public $param = NULL;
 
 
     public function __construct(Request $request, Response $response, Server $http_server)
@@ -54,7 +54,6 @@ class App
         $this->response = $response;
 
         $this->host = $request->header['host'];
-        $this->param = array_merge($request->get ?? [], $request->post ?? []);
 
         $request_uri_arr = explode('/', trim($request->server['request_uri'], '/'));
         $this->module = !empty($request_uri_arr[0]) ? $request_uri_arr[0] : env('app.default_module');
@@ -108,9 +107,22 @@ class App
         } else {
             // 默认为自动判断
             $method = 'param';
+            //初始化Param
+            $this->initParam();
         }
         $ret = $this->request->$method ?? $this->param;
         return $ret[$key] ?? $default;
+    }
+
+    /**
+     * 初始化Param
+     */
+    protected function initParam()
+    {
+
+        if (FALSE == isset($this->param)) {
+            $this->param = array_merge($this->request->get ?? [], $this->request->post ?? []);
+        }
     }
 
     /**
@@ -119,9 +131,12 @@ class App
      * @param string $key
      * @param null $default
      */
-    public function request($key, $default = NULL)
+    public function param($key='', $default = NULL)
     {
-        $this->input($key, $default);
+//        初始化Param
+        $this->initParam();
+        return empty($key) ? $this->param :
+            $this->input("get." . $key, $default);
     }
 
     /**
@@ -132,7 +147,8 @@ class App
      */
     public function get($key = '', $default = NULL)
     {
-        return $this->input("get." . $key, $default);
+        return empty($key) ? $this->request->get :
+            $this->input("get." . $key, $default);
     }
 
     /**
@@ -143,7 +159,8 @@ class App
      */
     public function post($key = '', $default = NULL)
     {
-        return $this->input("post." . $key, $default);
+        return empty($key) ? $this->request->post :
+            $this->input("post." . $key, $default);
     }
 
     /**
@@ -153,6 +170,11 @@ class App
     public function run()
     {
         try {
+
+            if (!empty(env("sign.use"))) {
+                $auth = new Sign($this);
+                $auth->verifySign();
+            }
             $controller = sprintf('App\%s\controller\%s', $this->module, $this->controller);
             $module = sprintf('%s/app/%s', APP_PATH, $this->module);
             if (!is_dir($module)) {
@@ -177,12 +199,13 @@ class App
             call_user_func([$dispatch, $this->action]);
         }
         catch (\Exception $e) {
-            ExceptionHandler::render($e,$this);
+            ExceptionHandler::render($e, $this);
         }
     }
 
     /**
      * html格式返回
+     *
      * @param $data
      * @param int $code
      *
@@ -199,6 +222,7 @@ class App
 
     /**
      * json格式返回
+     *
      * @param $data
      * @param int $code
      * @param string $mgs
