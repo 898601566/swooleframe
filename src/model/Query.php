@@ -265,6 +265,7 @@ class Query
         $bindKey = str_replace('.', '__', "$key");
         $bindKey = str_replace('%', '_', $bindKey);
         $retKey = ":{$prefix}_{$bindKey}";
+        //如果已经存在了,就处理一下
         if (array_key_exists($retKey, $this->bind)) {
             $retKey .= "_" . count($this->bind);
         }
@@ -306,10 +307,13 @@ class Query
         return $this;
     }
 
+
     /**
+     * 预处理标识绑定变量
+     * 只做绑定,不做唯一性处理,要做唯一性处理就提前用getBindKey构造语句
      *
-     * @param $wherestr
      * @param array $bind
+     * @param string $prefix
      *
      * @return $this
      */
@@ -455,6 +459,7 @@ class Query
 
     /**
      * 查询一条记录
+     *
      * @param array $id
      *
      * @return Model
@@ -474,6 +479,7 @@ class Query
 
     /**
      * 统计数量
+     *
      * @param string $field
      *
      * @return int|mixed|null
@@ -486,6 +492,7 @@ class Query
 
     /**
      * 求最小值
+     *
      * @param $field
      *
      * @return int|mixed|null
@@ -498,6 +505,7 @@ class Query
 
     /**
      * 求最大值
+     *
      * @param $field
      *
      * @return int|mixed|null
@@ -510,6 +518,7 @@ class Query
 
     /**
      * 求和
+     *
      * @param $field
      *
      * @return int|mixed|null
@@ -522,6 +531,7 @@ class Query
 
     /**
      * 求平均值
+     *
      * @param $field
      *
      * @return int|mixed|null
@@ -578,10 +588,61 @@ class Query
         return $this->source_sql;
     }
 
+
     /**
-     * 新增数据
+     * 新增数据,成功则返回主键
      *
-     * @param type $data
+     * @param $data
+     *
+     * @return string|null
+     */
+    public function insertAll($data)
+    {
+        $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsertAll($data));
+        $sttmnt = $this->getPDO()->prepare($sql);
+        $sttmnt = $this->formatBind($sttmnt, $sql);
+        if ($sttmnt->execute()) {
+            $this->clear();
+            return TRUE;
+        }
+        $this->clear();
+    }
+
+    /**
+     * 批量插入
+     *
+     * @param Array $data
+     * @return null
+     */
+    private function formatInsertAll(array $datas)
+    {
+        $field_arr = [];
+        $bind_data = [];
+        foreach ($datas as $i => $data) {
+            $bind_name_arr = [];
+            foreach ($data as $key => $value) {
+                if ($i == 0) {
+                    $field_arr[] = sprintf('`%s`', $key);
+                }
+                $bindKey = $this->getBindKey($key);
+                $bind_name_arr[] = $bindKey;
+                $bind_data[$bindKey] = $value;
+            }
+            $bind_name_str[] = " ( " . implode(',', $bind_name_arr) . " ) ";
+        }
+        $field = implode(',', $field_arr);
+        $value_str = implode(',', $bind_name_str);
+        $ret = sprintf('( %s ) values %s', $field, $value_str);
+        $this->addBind($bind_data);
+        return $ret;
+    }
+
+    /**
+     * 新增数据,成功则返回主键
+     *
+     * @param $data
+     *
+     * @return string|null
      */
     public function add($data)
     {
@@ -595,37 +656,6 @@ class Query
         }
         $this->clear();
         return $lastInsertId;
-    }
-
-    public function create($data)
-    {
-        return $this->add($data);
-    }
-
-    public function insert($data)
-    {
-        return $this->add($data);
-    }
-
-    /**
-     * 更新数据
-     *
-     * @param type $data
-     */
-    public function update($data, $where = [])
-    {
-        if (!empty($where)) {
-            $this->where($where);
-        }
-        $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
-        var_dump($this->condition_str);
-        var_dump($this->bind);
-        $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
-        $sttmnt->execute();
-        $count = $sttmnt->rowCount();
-        $this->clear();
-        return $count;
     }
 
     /**
@@ -649,6 +679,54 @@ class Query
         $bind_name = implode(',', $bind_name_arr);
         $ret = sprintf('( %s ) values ( %s )', $field, $bind_name);
         return $ret;
+    }
+
+    /**
+     * 新增数据,成功则返回主键
+     *
+     * @param $data
+     *
+     * @return string|null
+     */
+    public function create($data)
+    {
+        return $this->add($data);
+    }
+
+    /**
+     * 新增数据,成功则返回主键
+     *
+     * @param $data
+     *
+     * @return string|null
+     */
+    public function insert($data)
+    {
+        return $this->add($data);
+    }
+
+
+    /**
+     * 更新数据
+     *
+     * @param type $data
+     */
+    public function update($data, $where = [])
+    {
+        if (!empty($where)) {
+            $this->where($where);
+        }
+        $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
+        if (FALSE == strpos($sql, "WHERE")) {
+            var_dump($sql);
+            SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
+        }
+        $sttmnt = $this->getPDO()->prepare($sql);
+        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
+        $sttmnt->execute();
+        $count = $sttmnt->rowCount();
+        $this->clear();
+        return $count;
     }
 
     /**
@@ -691,7 +769,7 @@ class Query
         $sql = sprintf("delete from `%s` %s", $this->table, $this->condition_str);
         if (FALSE == strpos($sql, "WHERE")) {
             var_dump($sql);
-            SystemException::throwException(SystemException::SYSTEM_ERROR);
+            SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
         }
         $sttmnt = $this->getPDO()->prepare($sql);
         $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
