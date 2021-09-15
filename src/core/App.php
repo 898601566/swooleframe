@@ -169,7 +169,6 @@ class App
                 $auth = new Sign($this);
                 $auth->verifySign();
             }
-                var_dump(env("limit.use"));
             if (!empty(env("limit.use"))) {
                 $limit = new Limit($this);
                 $appRules = [

@@ -711,7 +711,6 @@ class Query
             }
             $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
             if (FALSE == strpos($sql, "WHERE")) {
-                var_dump($sql);
                 SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
             }
             $sttmnt = $this->getPDO()->prepare($sql);
@@ -785,7 +784,6 @@ class Query
             }
             $sql = sprintf("delete from `%s` %s", $this->table, $this->condition_str);
             if (FALSE == strpos($sql, "WHERE")) {
-                var_dump($sql);
                 SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
             }
             $sttmnt = $this->getPDO()->prepare($sql);
