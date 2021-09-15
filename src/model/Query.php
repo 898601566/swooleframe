@@ -411,30 +411,36 @@ class Query
      */
     public function select()
     {
+
+        try {
 //        拼接各个模块
-        $condition = $this->condition_str . $this->group_str . $this->order_str . $this->limit_str;
+            $condition = $this->condition_str . $this->group_str . $this->order_str . $this->limit_str;
 //        构造sql查询语句
-        $sql = sprintf('select %s from `%s` %s', $this->field, $this->table, $condition);
+            $sql = sprintf('select %s from `%s` %s', $this->field, $this->table, $condition);
 //        从PDO获取实例
-        $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
-        $sttmnt->execute();
-        $res = $sttmnt->fetchAll();
+            $sttmnt = $this->getPDO()->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
+            $sttmnt->execute();
+            $res = $sttmnt->fetchAll();
 //        构造模型类再塞入集合
-        $model_class_name = $this->model_class_name;
-        $ret = new Collection();
-        foreach ($res as $key => $value) {
-            /**
-             * @var Model $model
-             */
-            $model = new $model_class_name();
-            $ret->push($model->resultSet($value));
+            $model_class_name = $this->model_class_name;
+            $ret = new Collection();
+            foreach ($res as $key => $value) {
+                /**
+                 * @var Model $model
+                 */
+                $model = new $model_class_name();
+                $ret->push($model->resultSet($value));
+            }
+            if (!empty($this->with_str)) {
+                $ret->load($this->with_str);
+            }
+            $this->clear();
+            return $ret;
         }
-        if (!empty($this->with_str)) {
-            $ret->load($this->with_str);
+        catch (\PDOException $exception) {
+            exit($exception->getMessage());
         }
-        $this->clear();
-        return $ret;
     }
 
     /**
@@ -598,20 +604,26 @@ class Query
      */
     public function insertAll($data)
     {
-        $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsertAll($data));
-        $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $sql);
-        if ($sttmnt->execute()) {
+        try {
+            $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsertAll($data));
+            $sttmnt = $this->getPDO()->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt, $sql);
+            if ($sttmnt->execute()) {
+                $this->clear();
+                return TRUE;
+            }
             $this->clear();
-            return TRUE;
         }
-        $this->clear();
+        catch (\PDOException $exception) {
+            exit($exception->getMessage());
+        }
     }
 
     /**
      * 批量插入
      *
      * @param Array $data
+     *
      * @return null
      */
     private function formatInsertAll(array $datas)
@@ -644,18 +656,23 @@ class Query
      *
      * @return string|null
      */
-    public function add($data)
+    public function insert($data)
     {
-        $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsert($data));
-        $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $sql);
+        try {
+            $sql = sprintf('insert into `%s` %s', $this->table, $this->formatInsert($data));
+            $sttmnt = $this->getPDO()->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt, $sql);
 
-        $lastInsertId = NULL;
-        if ($sttmnt->execute()) {
-            $lastInsertId = $this->pdo_object->lastInsertId();
+            $lastInsertId = NULL;
+            if ($sttmnt->execute()) {
+                $lastInsertId = $this->pdo_object->lastInsertId();
+            }
+            $this->clear();
+            return $lastInsertId;
         }
-        $this->clear();
-        return $lastInsertId;
+        catch (\Exception $exception) {
+            exit($exception->getMessage());
+        }
     }
 
     /**
@@ -682,51 +699,31 @@ class Query
     }
 
     /**
-     * 新增数据,成功则返回主键
-     *
-     * @param $data
-     *
-     * @return string|null
-     */
-    public function create($data)
-    {
-        return $this->add($data);
-    }
-
-    /**
-     * 新增数据,成功则返回主键
-     *
-     * @param $data
-     *
-     * @return string|null
-     */
-    public function insert($data)
-    {
-        return $this->add($data);
-    }
-
-
-    /**
      * 更新数据
      *
      * @param type $data
      */
     public function update($data, $where = [])
     {
-        if (!empty($where)) {
-            $this->where($where);
+        try {
+            if (!empty($where)) {
+                $this->where($where);
+            }
+            $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
+            if (FALSE == strpos($sql, "WHERE")) {
+                var_dump($sql);
+                SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
+            }
+            $sttmnt = $this->getPDO()->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
+            $sttmnt->execute();
+            $count = $sttmnt->rowCount();
+            $this->clear();
+            return $count;
         }
-        $sql = sprintf('update `%s` set %s %s', $this->table, $this->formatUpdate($data), $this->condition_str);
-        if (FALSE == strpos($sql, "WHERE")) {
-            var_dump($sql);
-            SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
+        catch (\Exception $exception) {
+            exit($exception->getMessage());
         }
-        $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
-        $sttmnt->execute();
-        $count = $sttmnt->rowCount();
-        $this->clear();
-        return $count;
     }
 
     /**
@@ -751,6 +748,24 @@ class Query
     }
 
     /**
+     * 保存数据(如果数据已存在就更新,如果数据不存在就插入)
+     *
+     * @param $data
+     * @param array $where
+     *
+     * @return int|string|void
+     */
+    public function save($data, $where)
+    {
+        $res = $this->where($where)->select();
+        if (!empty($res) && FALSE == $res->isEmpty()) {
+            return $this->update($data, $where);
+        } else {
+            return $this->insert($data, $where);
+        }
+    }
+
+    /**
      * 根据条件主键删除
      *
      * @param integer|array $where
@@ -759,24 +774,30 @@ class Query
      */
     public function delete($where = [])
     {
-        if (!empty($where)) {
-            if (is_int($where)) {
-                $this->where($this->pk, $where);
-            } else {
-                $this->where($where);
+        try {
+
+            if (!empty($where)) {
+                if (is_int($where)) {
+                    $this->where($this->pk, $where);
+                } else {
+                    $this->where($where);
+                }
             }
+            $sql = sprintf("delete from `%s` %s", $this->table, $this->condition_str);
+            if (FALSE == strpos($sql, "WHERE")) {
+                var_dump($sql);
+                SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
+            }
+            $sttmnt = $this->getPDO()->prepare($sql);
+            $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
+            $sttmnt->execute();
+            $rowCount = $sttmnt->rowCount();
+            $this->clear();
+            return $rowCount;
         }
-        $sql = sprintf("delete from `%s` %s", $this->table, $this->condition_str);
-        if (FALSE == strpos($sql, "WHERE")) {
-            var_dump($sql);
-            SystemException::throwException(SystemException::DANGEROUS_DATABASE_OPERATION);
+        catch (\Exception $exception) {
+            exit($exception->getMessage());
         }
-        $sttmnt = $this->getPDO()->prepare($sql);
-        $sttmnt = $this->formatBind($sttmnt, $sql, $this->bind);
-        $sttmnt->execute();
-        $rowCount = $sttmnt->rowCount();
-        $this->clear();
-        return $rowCount;
     }
 
     /**

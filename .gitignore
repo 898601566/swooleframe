@@ -16,11 +16,10 @@ dist/
 nbdist/
 .nb-gradle/
 runtime
-config/app.php
-config/database.php
 storage/runtime/*
 .example.env
 .htaccess
 app
 bin
 public
+config
