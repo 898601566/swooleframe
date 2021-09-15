@@ -54,11 +54,6 @@ class App
         $this->response = $response;
 
         $this->host = $request->header['host'];
-
-        $request_uri_arr = explode('/', trim($request->server['request_uri'], '/'));
-        $this->module = !empty($request_uri_arr[0]) ? $request_uri_arr[0] : env('app.default_module');
-        $this->controller = !empty($request_uri_arr[1]) ? $request_uri_arr[1] : env('app.default_controller');
-        $this->action = !empty($request_uri_arr[2]) ? $request_uri_arr[2] : env('app.default_action');
     }
 
 
@@ -167,7 +162,7 @@ class App
      * 运行控制器
      * @return null
      */
-    public function run()
+    public function run(Request $request)
     {
         try {
             if (!empty(env("sign.use"))) {
@@ -184,6 +179,12 @@ class App
                     SystemException::throwException(SystemException::SERVER_TIMEOUT);
                 }
             }
+
+            $request_uri_arr = explode('/', trim($request->server['request_uri'], '/'));
+            $this->module = !empty($request_uri_arr[0]) ? $request_uri_arr[0] : env('app.default_module');
+            $this->controller = !empty($request_uri_arr[1]) ? $request_uri_arr[1] : env('app.default_controller');
+            $this->action = !empty($request_uri_arr[2]) ? $request_uri_arr[2] : env('app.default_action');
+
             $controller = sprintf('App\%s\controller\%s', $this->module, $this->controller);
             $module = sprintf('%s/app/%s', APP_PATH, $this->module);
             if (!is_dir($module)) {
